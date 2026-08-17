@@ -334,3 +334,65 @@ python src/evaluate.py
 - **Não altere os datasets de avaliação** - apenas os prompts em `prompts/bug_to_user_story_v2.yml`
 - **Itere, itere, itere** - é normal precisar de 3-5 iterações para atingir 0.8 em todas as métricas
 - **Documente seu processo** - a jornada de otimização é tão importante quanto o resultado final
+
+---
+
+## 📦 Entrega
+
+### 🧠 Técnicas Aplicadas (Fase 2)
+
+O prompt otimizado está em `prompts/bug_to_user_story_v2.yml` e usa quatro
+técnicas complementares:
+
+- **Role Prompting:** define a persona de Product Manager sênior especializada em
+  análise de bugs, qualidade e User Stories. Isso mantém o texto centrado no valor
+  para a pessoa usuária e em resultados verificáveis.
+- **Few-shot Learning:** apresenta três pares sintéticos de entrada e saída para
+  bugs simples, médios e complexos. Os exemplos ensinam desde um critério funcional
+  conciso até cenários multidimensionais com contexto, recomendações e métricas.
+- **Chain of Thought:** solicita uma análise interna e silenciosa dos fatos antes da
+  resposta. A matriz cobre ator, ambiente, reprodução, valores, comportamento,
+  impacto e dimensões técnicas, sem expor a cadeia de raciocínio.
+- **Skeleton of Thought:** estabelece um esqueleto adaptativo em Markdown com User
+  Story e Critérios de Aceitação obrigatórios, acrescentando contexto, critérios
+  técnicos, tarefas e métricas somente quando sustentados pelo relato.
+
+Além dessas técnicas, o prompt separa fato observado, resultado esperado inferível
+e recomendação técnica. Um checklist focal de recall cobre padrões que tiveram
+omissões recorrentes durante a avaliação, sem alterar o dataset ou as métricas.
+
+### 📊 Resultados Finais
+
+A avaliação foi executada nos 15 exemplos do dataset `MBA-eval`, usando o provider
+OpenAI, `gpt-4o-mini` para geração e `gpt-4o` para avaliação. O prompt inicial
+`leonanluppi/bug_to_user_story_v1` ficou reprovado porque, mesmo com média geral
+acima de `0,8`, não atingiu o mínimo obrigatório em F1-Score. O prompt otimizado
+`ricardo-sass/bug_to_user_story_v2` foi aprovado porque todas as métricas ficaram
+maiores ou iguais a `0,8`.
+
+| Métrica | v1 `leonanluppi/bug_to_user_story_v1` | v2 `ricardo-sass/bug_to_user_story_v2` | Variação |
+| --- | ---: | ---: | ---: |
+| Helpfulness | 0,87 | 0,89 | +0,02 |
+| Correctness | 0,81 | 0,84 | +0,03 |
+| F1-Score | 0,74 | 0,81 | +0,07 |
+| Clarity | 0,88 | 0,90 | +0,02 |
+| Precision | 0,87 | 0,87 | +0,00 |
+| Média geral | 0,8343 | 0,8632 | +0,0289 |
+
+Prompt público: [ricardo-sass/bug_to_user_story_v2](https://smith.langchain.com/hub/ricardo-sass/bug_to_user_story_v2/2d2cb8bf?tab=0)
+
+#### 🖼️ Screenshots da avaliação
+
+![Avaliação do prompt v1](screenshots/evaluate_1.png)
+
+![Avaliação do prompt v2](screenshots/evaluate_2.png)
+
+#### 🔎 Traces públicos no LangSmith
+
+- [Trace 1](https://smith.langchain.com/public/dd70d79f-e350-40b3-9733-e43246081b67/r/89cabe80-8161-44c2-9725-3e1dc0b95f59?start_time=2026-08-17T14%3A26%3A24.800717Z)
+- [Trace 2](https://smith.langchain.com/public/eefd2fb6-3fc1-4c6b-a4a8-61b796e12739/r/5229ec16-74f2-4360-b5ab-be411b4960d6?start_time=2026-08-17T14%3A26%3A22.750333Z)
+- [Trace 3](https://smith.langchain.com/public/f9a0b8ae-c936-412e-b0bf-448f230834c6/r/5217074c-e39c-44ec-a0e3-be1615e1f564?start_time=2026-08-17T14%3A26%3A20.59599Z)
+
+![Trace público 1](screenshots/tracing_1.png)
+
+![Trace público 2](screenshots/tracing_2.png)

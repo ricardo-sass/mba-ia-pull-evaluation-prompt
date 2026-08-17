@@ -1,0 +1,104 @@
+schema: spec-driven
+
+context: |
+  IDIOMA OBRIGATÓRIO
+  - Use português brasileiro (pt-BR/pt-br) em todas as conversas sobre o projeto e em todo o conteúdo humano dos artefatos OpenSpec, incluindo propostas, especificações, designs e tarefas.
+  - Escreva títulos, descrições, justificativas, requisitos, cenários e critérios de aceitação em pt-BR, com linguagem clara, objetiva e consistente.
+  - Preserve no idioma original somente elementos que não devem ser traduzidos: código, identificadores, nomes de arquivos e diretórios, variáveis de ambiente, APIs, bibliotecas, modelos e marcadores estruturais exigidos pelo OpenSpec. Explique esses elementos em pt-BR quando necessário.
+
+  VISÃO GERAL DO PROJETO
+  - Este é um desafio educacional de Prompt Engineering em Python para transformar relatos de bugs em User Stories de alta qualidade.
+  - O fluxo principal faz pull de um prompt inicial do LangSmith Prompt Hub, otimiza esse prompt localmente em YAML, publica a versão otimizada no Hub e avalia suas respostas sobre um dataset de referência usando LLM-as-Judge.
+  - A meta de aprovação é obter nota maior ou igual a 0,8 em cada uma das cinco métricas e também média geral maior ou igual a 0,8. Não basta apenas a média ser aprovada.
+  - O repositório-base é intencionalmente incompleto. Os principais entregáveis são `prompts/bug_to_user_story_v2.yml`, a implementação de `src/pull_prompts.py`, a implementação de `src/push_prompts.py`, os seis testes de `tests/test_prompts.py` e a documentação do processo no `README.md`.
+  - Não há mudanças OpenSpec ativas nem especificações consolidadas no estado inicial analisado.
+
+  FLUXO E ARQUITETURA
+  1. `src/pull_prompts.py` deve autenticar no LangSmith, baixar `leonanluppi/bug_to_user_story_v1` e persistir sua representação em `prompts/bug_to_user_story_v1.yml`.
+  2. O prompt v1 é deliberadamente ruim e serve apenas como ponto de partida. A versão otimizada deve ser criada em `prompts/bug_to_user_story_v2.yml`.
+  3. `src/push_prompts.py` deve carregar e validar o YAML v2, convertê-lo em `ChatPromptTemplate` e publicá-lo como `{USERNAME_LANGSMITH_HUB}/bug_to_user_story_v2`, com descrição, tags e técnicas utilizadas. O prompt publicado deve ser público conforme os requisitos do desafio.
+  4. `src/evaluate.py` considera o LangSmith Hub como fonte de verdade da avaliação: cria ou reutiliza o dataset remoto, faz pull do prompt v2 publicado, executa os 15 casos e calcula as notas.
+  5. `src/metrics.py` usa um LLM avaliador com temperatura zero. A avaliação principal consome F1-Score, Clarity e Precision; Helpfulness deriva da média entre Clarity e Precision, e Correctness deriva da média entre F1-Score e Precision.
+  6. `src/metrics.py` também oferece métricas específicas de tom, critérios de aceitação, formato de User Story e completude, mas elas não integram atualmente o fluxo principal de `src/evaluate.py`.
+  7. `src/utils.py` concentra leitura e escrita YAML, validação estrutural de prompts, verificação de ambiente, formatação de notas, extração de JSON e seleção do provedor de LLM.
+
+  ESTRUTURA E RESPONSABILIDADES
+  - `README.md`: fonte de verdade dos requisitos do desafio, ordem de execução, critérios de aprovação e evidências esperadas.
+  - `prompts/`: prompts YAML versionados; o v1 é a referência ruim e o v2 é o entregável otimizado.
+  - `datasets/bug_to_user_story.jsonl`: dataset imutável com 15 exemplos; cada linha possui `inputs.bug_report`, `outputs.reference` e metadados de domínio, tipo e complexidade.
+  - O dataset cobre 5 bugs simples, 7 médios e 3 complexos nos domínios e-commerce, SaaS, mobile, ERP e CRM. Os relatos complexos podem envolver segurança, integrações, concorrência, cache, sincronização e memória.
+  - `src/`: scripts de integração, avaliação, métricas e utilitários.
+  - `tests/`: validações locais do contrato estrutural do prompt otimizado.
+  - `.env.example`: catálogo público das variáveis esperadas; `.env` contém configuração local, é ignorado pelo Git e nunca deve ser versionado nem ter segredos copiados para artefatos.
+
+  STACK E DEPENDÊNCIAS
+  - Python 3.9 ou superior.
+  - LangChain e LangChain Core 0.3 para composição de prompts e chains.
+  - LangSmith 0.2 para Prompt Hub, datasets, tracing e avaliação.
+  - Provedores suportados: OpenAI por `langchain-openai` e Google Gemini por `langchain-google-genai`.
+  - PyYAML para prompts, python-dotenv para configuração, Pydantic como dependência e pytest para testes.
+  - Modelos sugeridos: `gpt-4o-mini` para geração e `gpt-4o` para avaliação, ou `gemini-2.5-flash` para ambas as funções.
+  - Use `LLM_PROVIDER=openai` ou `LLM_PROVIDER=google`, pois esses são os valores aceitos pelo seletor implementado em `src/utils.py`.
+
+  CONFIGURAÇÃO DE AMBIENTE
+  - Variáveis LangSmith: `LANGSMITH_TRACING`, `LANGSMITH_ENDPOINT`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT` e `USERNAME_LANGSMITH_HUB`.
+  - Chaves de provedor: `OPENAI_API_KEY` ou `GOOGLE_API_KEY`, conforme o provedor escolhido.
+  - Seleção de modelos: `LLM_PROVIDER`, `LLM_MODEL` e `EVAL_MODEL`.
+  - Nunca registrar chaves, tokens ou o conteúdo de `.env` em artefatos, logs de exemplo, testes ou commits.
+  - Operações de pull, push e avaliação dependem de rede, credenciais válidas e recursos externos no LangSmith; testes estruturais locais não devem depender desses serviços.
+
+  CONTRATO DO PROMPT OTIMIZADO
+  - O YAML v2 deve manter uma entrada de prompt versionada e conter, no mínimo, `description`, `system_prompt`, `user_prompt`, `version`, `tags` e `techniques_applied`.
+  - O `system_prompt` deve definir uma persona adequada, fornecer instruções claras e específicas, estabelecer regras explícitas, tratar casos-limite e determinar o formato de saída da User Story.
+  - O `user_prompt` deve receber o relato por meio da variável `{bug_report}` e separar corretamente a entrada do usuário das instruções de sistema.
+  - Few-shot Learning é obrigatório, com exemplos claros de entrada e saída. Deve ser combinado com pelo menos uma técnica adicional, como Role Prompting, Chain of Thought, Tree of Thought, Skeleton of Thought ou ReAct.
+  - A resposta deve ser centrada no usuário, preservar fatos do relato sem inventar informações e seguir o formato `Como um..., eu quero..., para que...`.
+  - Critérios de aceitação devem ser claros, específicos e testáveis, preferencialmente estruturados em Dado/Quando/Então, incluindo cenários de erro e casos-limite quando relevantes.
+  - Bugs simples podem produzir histórias concisas; bugs complexos devem preservar contexto técnico, impacto, severidade e múltiplos aspectos relevantes sem introduzir soluções não sustentadas pelo relato.
+  - Não deixar marcadores `TODO` ou `[TODO]` no prompt final.
+
+  TESTES E CRITÉRIOS DE ACEITAÇÃO
+  - O comando local principal é `pytest tests/test_prompts.py`.
+  - Os seis testes mínimos verificam: presença de `system_prompt`, definição de persona, menção ao formato esperado, exemplos few-shot, ausência de TODOs e no mínimo duas técnicas declaradas nos metadados.
+  - A avaliação remota é executada com `python src/evaluate.py` somente depois do push do v2.
+  - Todas as cinco notas — Helpfulness, Correctness, F1-Score, Clarity e Precision — devem ser maiores ou iguais a 0,8.
+  - O processo esperado inclui de 3 a 5 iterações orientadas pelas métricas, com novo push antes de cada reavaliação.
+
+  CONVENÇÕES DE IMPLEMENTAÇÃO E DOCUMENTAÇÃO
+  - Siga o estilo existente: indentação de quatro espaços, funções e variáveis em `snake_case`, constantes em maiúsculas, type hints nas interfaces relevantes, docstrings em pt-BR e arquivos em UTF-8.
+  - Prefira funções pequenas, retornos explícitos de sucesso/erro e mensagens de CLI acionáveis em pt-BR.
+  - Use caminhos relativos à raiz do repositório e `pathlib.Path` quando houver manipulação de caminhos.
+  - Preserve a ordem dos campos YAML, caracteres Unicode e blocos multilinha dos prompts.
+  - Trate falhas previsíveis de arquivo, YAML, JSON, credenciais, rede e APIs externas sem expor segredos.
+  - Mantenha compatibilidade com OpenAI e Google; uma mudança não deve acoplar o fluxo a apenas um provedor sem requisito explícito.
+  - Use pytest para testes e mocks/fakes para integrações externas quando testes unitários forem necessários.
+  - O histórico adota Conventional Commits, principalmente os prefixos `fix:` e `docs:`; mantenha esse padrão e use outros tipos convencionais quando apropriado.
+  - Não altere `src/evaluate.py`, `src/metrics.py`, `src/utils.py` nem `datasets/bug_to_user_story.jsonl`, pois o README os define como base pronta e protegida, salvo se uma proposta futura justificar explicitamente a exceção e o escopo for autorizado.
+
+  DOCUMENTAÇÃO E EVIDÊNCIAS
+  - O README final deve explicar pré-requisitos, configuração segura, instalação, pull, otimização, testes, push e avaliação.
+  - Documente as técnicas aplicadas, a justificativa de cada uma e exemplos práticos de uso.
+  - Registre resultados finais com tabela comparativa v1 versus v2, link público do LangSmith e evidências das avaliações com notas mínimas de 0,8, incluindo dataset e traces exigidos pelo desafio.
+  - Não invente métricas, URLs, screenshots ou resultados. Marque dependências de execução externa como pendentes até existirem evidências reais.
+
+rules:
+  proposal:
+    - Escrever todo o conteúdo humano em português brasileiro (pt-BR), preservando apenas identificadores técnicos e marcadores estruturais obrigatórios.
+    - Explicar por que a mudança é necessária, o valor educacional ou funcional esperado, o escopo, os não objetivos e os arquivos ou integrações afetados.
+    - Distinguir claramente trabalho local de operações externas no LangSmith e indicar credenciais, rede ou custos envolvidos sem expor segredos.
+    - Respeitar os arquivos protegidos pelo README; qualquer exceção deve aparecer explicitamente no impacto e na justificativa.
+  specs:
+    - Escrever requisitos e cenários em português brasileiro (pt-BR), mantendo os cabeçalhos e marcadores exatos exigidos pelo validador OpenSpec quando necessário.
+    - Formular requisitos observáveis e testáveis com linguagem normativa inequívoca, usando DEVE ou NÃO DEVE.
+    - Descrever cenários no formato Quando/Então e incluir caminhos de erro, casos-limite e indisponibilidade de serviços externos quando relevantes.
+    - Para qualidade de prompts, declarar critérios verificáveis sobre estrutura YAML, técnicas aplicadas, fidelidade ao bug, formato de User Story e limite mínimo de 0,8 por métrica.
+  design:
+    - Escrever decisões, alternativas, justificativas, riscos e trade-offs em português brasileiro (pt-BR).
+    - Representar o fluxo local → LangSmith Hub → dataset → LLM gerador → LLM avaliador sempre que a mudança afetar integração ou avaliação.
+    - Explicar compatibilidade com OpenAI e Google, limites de custo/rede, tratamento de erros, segurança de credenciais e estratégia de testes.
+    - Preferir as abstrações e utilitários já existentes antes de introduzir novas dependências ou duplicar responsabilidades.
+  tasks:
+    - Escrever grupos e tarefas em português brasileiro (pt-BR), com itens pequenos, ordenados, verificáveis e associados a arquivos ou resultados concretos.
+    - Separar implementação local, testes automatizados, operações externas no LangSmith e coleta de evidências.
+    - Incluir validação com `pytest tests/test_prompts.py` e, quando aplicável, push seguido de `python src/evaluate.py`.
+    - Não considerar concluída uma tarefa dependente do LangSmith sem evidência real de publicação ou avaliação; não simular resultados externos.
